@@ -8,6 +8,8 @@ import re
 
 
 TAG_BLOCK_PATTERN = re.compile(r"<tag>\s*(.+?)\s*</tag>", re.DOTALL | re.IGNORECASE)
+DESC_BLOCK_PATTERN = re.compile(r"<desc>\s*(.+?)\s*</desc>", re.DOTALL | re.IGNORECASE)
+VIBE_BLOCK_PATTERN = re.compile(r"<vibe>\s*(.+?)\s*</vibe>", re.DOTALL | re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -78,6 +80,24 @@ def extract_nai_tag(content: str) -> str | None:
     if not content:
         return None
     match = TAG_BLOCK_PATTERN.search(content)
+    if match:
+        return match.group(1).strip()
+    return None
+
+
+def extract_desc(content: str) -> str | None:
+    if not content:
+        return None
+    match = DESC_BLOCK_PATTERN.search(content)
+    if match:
+        return match.group(1).strip()
+    return None
+
+
+def extract_vibe(content: str) -> str | None:
+    if not content:
+        return None
+    match = VIBE_BLOCK_PATTERN.search(content)
     if match:
         return match.group(1).strip()
     return None

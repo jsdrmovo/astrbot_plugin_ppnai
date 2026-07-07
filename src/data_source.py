@@ -605,7 +605,8 @@ async def generate_image(
     """
     # 转换请求格式
     request_body = _convert_req_to_official_format(req, opus_free_mode=opus_free_mode)
-    
+    logger.info(f"[nai] positive_prompt = {request_body.get('input', '')}")
+
     # Vibe Transfer: v4+ 模型需要先通过 /ai/encode-vibe 编码参考图
     # track: (index, img_b64, info_extract, cache_key) for entries that came from cache
     cached_vibe_entries: list[tuple[int, str, float, str]] = []

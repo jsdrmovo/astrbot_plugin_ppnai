@@ -342,10 +342,25 @@ async def handle_llm_response_auto_draw(plugin, event, resp: LLMResponse):
         f"presets={presets}, opener={opener_user_id}"
     )
 
+    user_message = event.message_str or ""
+
+    # ── 多轮上下文缓冲区 ──
+    recent_context: list[str] = auto_info.get("recent_context", [])
+    recent_context.append(f"用户：{user_message}\n角色：{ai_response}")
+    max_rounds = 3
+    if len(recent_context) > max_rounds:
+        recent_context = recent_context[-max_rounds:]
+    auto_info["recent_context"] = recent_context
+    accumulated_context = "\
+---\
+".join(recent_context) if len(recent_context) > 1 else ""
+
     coro = _auto_draw_generate(
         plugin,
         event,
         ai_response,
+        user_message,
+        accumulated_context,
         preset_contents,
         opener_user_id,
         is_whitelisted,
@@ -368,6 +383,8 @@ async def _auto_draw_generate(
     plugin,
     event,
     ai_response: str,
+    user_message: str,
+    accumulated_context: str,
     preset_contents: list[str],
     opener_user_id: str,
     is_whitelisted: bool,
@@ -459,8 +476,25 @@ async def _auto_draw_generate(
                         )
                 cs_content = "\n\n".join(cs_content_parts)
 
-                full_parts = list(reversed(preset_contents)) + [ai_response_with_prefix]
-                full_instructions = "\n\n".join(full_parts)
+                # Build combined system prompt: <preset> base tags + cs outfit
+                extra_sys_parts = []
+                prepend_tag_str = wrappers.get("prepend_tag", "")
+                if prepend_tag_str:
+                    extra_sys_parts.append(f"<preset>\n{prepend_tag_str}\n</preset>")
+                if cs_content:
+                    extra_sys_parts.append(cs_content)
+                extra_sys = "\n\n".join(extra_sys_parts) if extra_sys_parts else None
+
+                if user_message:
+                    full_parts = list(reversed(preset_contents))
+                    if accumulated_context:
+                        full_parts.append(f"前序对话（用于理解场景推进）：\n{accumulated_context}")
+                    full_parts.append(f"当前轮：\n用户消息：{user_message}")
+                    full_parts.append(ai_response_with_prefix)
+                    full_instructions = "\n\n".join(full_parts)
+                else:
+                    full_parts = list(reversed(preset_contents)) + [ai_response_with_prefix]
+                    full_instructions = "\n\n".join(full_parts)
 
                 await event.send(event.plain_result(f"🎨 自动画图中...{queue_status}"))
 
@@ -476,7 +510,7 @@ async def _auto_draw_generate(
                             vibe_transfer_images=vibe_transfer_images,
                             vision_images=vision_images,
                             skip_default_prompts=bool(preset_contents),
-                            extra_system_prompt=cs_content,
+                            extra_system_prompt=extra_sys,
                         )
 
                         if character_keep_image and req.addition is not None:

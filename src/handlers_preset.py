@@ -10,13 +10,16 @@ from collections.abc import AsyncIterator
 
 
 async def handle_preset_list(plugin, event) -> AsyncIterator:
-    presets = await asyncio.to_thread(plugin.preset_manager.list_presets)
-    if not presets:
+    store = plugin.preset_manager._load()
+    if not store.presets:
         yield event.plain_result("暂无预设，管理员可使用 nai预设添加 命令添加预设")
         return
 
-    result = "预设列表：\n" + "\n".join(f"• {title}" for title in presets)
-    yield event.plain_result(result)
+    lines = []
+    for key, p in store.presets.items():
+        desc = p.title.strip() if p.title and p.title.strip() != key else ""
+        lines.append(f"• {key}" + (f" — {desc}" if desc else ""))
+    yield event.plain_result("预设列表：\n" + "\n".join(lines))
 
 
 async def handle_preset_view(plugin, event) -> AsyncIterator:

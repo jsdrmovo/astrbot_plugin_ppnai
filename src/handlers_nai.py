@@ -135,6 +135,16 @@ async def handle_nai_draw(plugin, event, waiting_replies: list[str]) -> AsyncIte
 
     merged_raw, wrappers, explicit_ids = merge_nai_params(preset_contents, raw_input)
     filtered_raw = _strip_image_param_lines(merged_raw)
+
+    # Build combined system prompt: <preset> base tags + cs outfit
+    extra_sys_parts = []
+    prepend_tag_str = wrappers.get("prepend_tag", "")
+    if prepend_tag_str:
+        extra_sys_parts.append(f"<preset>\n{prepend_tag_str}\n</preset>")
+    if cs_content:
+        extra_sys_parts.append(cs_content)
+    extra_sys = "\n\n".join(extra_sys_parts) if extra_sys_parts else None
+
     try:
         if filtered_raw.strip():
             user_req = await parse_req(
@@ -220,7 +230,7 @@ async def handle_nai_draw(plugin, event, waiting_replies: list[str]) -> AsyncIte
                             character_keep_image=character_keep_image,
                             vision_images=vision_images,
                             skip_default_prompts=bool(preset_contents),
-                            extra_system_prompt=cs_content,
+                            extra_system_prompt=extra_sys,
                         )
 
                         if user_req is not None:

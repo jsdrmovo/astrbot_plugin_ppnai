@@ -51,6 +51,8 @@ async def handle_cs(plugin, event) -> AsyncIterator:
     name = kv.get("na", "").strip()
     aa_prompt = kv.get("aa", "").strip()
     nn_prompt = kv.get("nn", "").strip()
+    desc_text = kv.get("desc", "").strip()
+    vibe_text = kv.get("vibe", "").strip()
 
     if not name:
         yield event.plain_result("请提供角色保持名称：na=名称")
@@ -103,6 +105,12 @@ async def handle_cs(plugin, event) -> AsyncIterator:
         if not content:
             yield event.plain_result("生成角色保持失败：返回内容为空")
             return
+
+        # Append desc and vibe blocks (direct storage, no LLM translation)
+        if desc_text:
+            content += "\n\n<desc>\n" + desc_text + "\n</desc>"
+        if vibe_text:
+            content += "\n\n<vibe>\n" + vibe_text + "\n</vibe>"
 
     try:
         await asyncio.to_thread(plugin.cs_store.write, user_id, name, content, overwrite=False)

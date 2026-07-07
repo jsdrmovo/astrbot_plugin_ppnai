@@ -831,6 +831,32 @@ async def end_process(data: dict[str, Any], ctx: "Config", **_):
     prepend_negative = data.pop("prepend_negative", "").strip()
     append_negative = data.pop("append_negative", "").strip()
     
+    # ── 去重：LLM 输出中移除 prepend_tag 已有的标签 ──
+    # 系统已通过 prepend_tag 自动注入角色基础+质量标签，
+    # 但 LLM 看不到 prepend 内容，会在输出中再次生成这些标签。
+    # 这里在代码层做归一化去重，避免 prompt 中出现重复 tag。
+    def _normalize_tag(t: str) -> str:
+        """去除 NAI 强调符号 {} [] 后返回纯 tag，用于比对。"""
+        return t.strip().strip("{}[]").strip()
+    
+    llm_tag = data.get("tag", "").strip()
+    if prepend_tag and llm_tag:
+        # 提取 prepend 中的纯 tag 集合（去强调符号后比对）
+        prepend_set = {_normalize_tag(t) for t in prepend_tag.split(",") if t.strip()}
+        # 过滤 LLM 输出：移除与 prepend 重复的 tag
+        deduped_tags = []
+        seen = set()
+        for t in llm_tag.split(","):
+            t_stripped = t.strip()
+            if not t_stripped:
+                continue
+            normalized = _normalize_tag(t_stripped)
+            if normalized in prepend_set or normalized in seen:
+                continue
+            deduped_tags.append(t_stripped)
+            seen.add(normalized)
+        data["tag"] = ", ".join(deduped_tags)
+    
     # 拼接正向提示词：prepend_tag + tag + append_tag
     tag_parts = []
     if prepend_tag:
